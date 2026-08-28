@@ -493,7 +493,12 @@ function showError(message) {
         message;
 
 }
+function hideError() {
 
+    errorPage.style.display =
+        "none";
+
+}
 
 /* ================================
    HOSTNAME
