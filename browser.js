@@ -169,66 +169,260 @@ function displayScreenshot(base64) {
     homePage.style.display = "none";
     errorPage.style.display = "none";
 
-    page.srcdoc = `
+    // Create the remote screen only once.
+    if (!page.dataset.remoteScreenReady) {
+
+        page.dataset.remoteScreenReady = "true";
+
+        page.srcdoc = `
 <!DOCTYPE html>
 <html>
 <head>
-
 <style>
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+}
 
-html,
 body {
-
-    margin:0;
-    padding:0;
-
-    width:100%;
-    height:100%;
-
-    overflow:hidden;
-
-    background:#000;
-
-    user-select:none;
-
+    outline: none;
 }
 
-img {
-
-    position:absolute;
-
-    left:0;
-    top:0;
-
-    width:100%;
-    height:100%;
-
-    object-fit:fill;
-
-    user-select:none;
-
-    -webkit-user-drag:none;
-
+#remoteScreen {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+    user-select: none;
+    -webkit-user-drag: none;
+    cursor: default;
 }
-
 </style>
-
 </head>
 
-<body>
+<body tabindex="0">
 
 <img
     id="remoteScreen"
-    src="data:image/jpeg;base64,${base64}"
     draggable="false"
 >
 
 <script>
 
-const img =
-    document.getElementById("remoteScreen");
+const img = document.getElementById("remoteScreen");
+const body = document.body;
+
+function coordinates(event) {
+
+    const rect = img.getBoundingClientRect();
+
+    return {
+        x: Math.max(
+            0,
+            Math.min(
+                ${REMOTE_WIDTH},
+                (event.clientX - rect.left)
+                * ${REMOTE_WIDTH}
+                / rect.width
+            )
+        ),
+
+        y: Math.max(
+            0,
+            Math.min(
+                ${REMOTE_HEIGHT},
+                (event.clientY - rect.top)
+                * ${REMOTE_HEIGHT}
+                / rect.height
+            )
+        )
+    };
+}
 
 
+/* Keep the remote browser focused */
+
+img.addEventListener("mousedown", event => {
+
+    body.focus();
+
+    const pos = coordinates(event);
+
+    parent.postMessage({
+        source: "veteran-eagles-browser",
+        type: "mousedown",
+        x: pos.x,
+        y: pos.y,
+        button: event.button
+    }, "*");
+
+});
+
+
+img.addEventListener("mouseup", event => {
+
+    const pos = coordinates(event);
+
+    parent.postMessage({
+        source: "veteran-eagles-browser",
+        type: "mouseup",
+        x: pos.x,
+        y: pos.y,
+        button: event.button
+    }, "*");
+
+});
+
+
+img.addEventListener("click", event => {
+
+    const pos = coordinates(event);
+
+    parent.postMessage({
+        source: "veteran-eagles-browser",
+        type: "click",
+        x: pos.x,
+        y: pos.y
+    }, "*");
+
+});
+
+
+img.addEventListener("dblclick", event => {
+
+    const pos = coordinates(event);
+
+    parent.postMessage({
+        source: "veteran-eagles-browser",
+        type: "dblclick",
+        x: pos.x,
+        y: pos.y
+    }, "*");
+
+});
+
+
+img.addEventListener("mousemove", event => {
+
+    const pos = coordinates(event);
+
+    parent.postMessage({
+        source: "veteran-eagles-browser",
+        type: "mousemove",
+        x: pos.x,
+        y: pos.y
+    }, "*");
+
+});
+
+
+img.addEventListener("wheel", event => {
+
+    event.preventDefault();
+
+    parent.postMessage({
+        source: "veteran-eagles-browser",
+        type: "scroll",
+        amount: event.deltaY
+    }, "*");
+
+}, { passive: false });
+
+
+body.addEventListener("keydown", event => {
+
+    parent.postMessage({
+        source: "veteran-eagles-browser",
+        type: "keydown",
+        key: event.key
+    }, "*");
+
+    event.preventDefault();
+
+});
+
+
+body.addEventListener("keypress", event => {
+
+    if (event.key.length === 1) {
+
+        parent.postMessage({
+            source: "veteran-eagles-browser",
+            type: "type",
+            text: event.key
+        }, "*");
+
+    }
+
+});
+
+
+/* Receive new screenshots without recreating the page */
+
+window.addEventListener("message", event => {
+
+    if (
+        event.data &&
+        event.data.source ===
+            "veteran-eagles-screen"
+    ) {
+
+        img.src =
+            "data:image/jpeg;base64," +
+            event.data.data;
+
+    }
+
+});
+
+
+body.focus();
+
+</script>
+
+</body>
+</html>
+`;
+
+        // Wait for the iframe document to exist,
+        // then send the first screenshot.
+        setTimeout(() => {
+
+            if (page.contentWindow) {
+
+                page.contentWindow.postMessage({
+                    source: "veteran-eagles-screen",
+                    data: base64
+                }, "*");
+
+            }
+
+        }, 50);
+
+        return;
+    }
+
+
+    // IMPORTANT:
+    // Don't recreate srcdoc.
+    // Just replace the image.
+
+    if (page.contentWindow) {
+
+        page.contentWindow.postMessage({
+            source: "veteran-eagles-screen",
+            data: base64
+        }, "*");
+
+    }
+
+}
 function getCoordinates(event) {
 
     const rect =
