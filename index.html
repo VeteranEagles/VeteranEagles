@@ -8,7 +8,7 @@
     name="viewport"
     content="width=device-width, initial-scale=1.0">
 
-  <title>Arctic Browser</title>
+  <title>Veteran Eagles Browser</title>
 
   <link rel="stylesheet" href="style.css">
 </head>
@@ -19,6 +19,15 @@
 
     <!-- TOP BAR -->
     <header id="toolbar">
+
+      <div id="brand">
+        <div class="eagle">🦅</div>
+
+        <div class="brand-text">
+          <div class="brand-name">VETERAN EAGLES</div>
+          <div class="brand-subtitle">PATRIOT BROWSER</div>
+        </div>
+      </div>
 
       <div id="navButtons">
 
@@ -54,14 +63,14 @@
 
       <div id="addressContainer">
 
-        <span id="lock">⌕</span>
+        <span id="lock">★</span>
 
         <input
           id="address"
           type="text"
           autocomplete="off"
           spellcheck="false"
-          placeholder="Search or enter URL">
+          placeholder="Search or enter a URL">
 
         <button
           id="go"
@@ -91,19 +100,26 @@
 
     </header>
 
-    <!-- TAB BAR -->
+    <!-- PATRIOTIC ACCENT -->
+    <div id="flagStripe">
+      <div class="red"></div>
+      <div class="white"></div>
+      <div class="blue"></div>
+    </div>
+
+    <!-- TABS -->
     <div id="tabs">
 
       <div
         id="tab"
         class="tab active">
 
-        <span class="tab-icon">❄</span>
+        <span class="tab-icon">🦅</span>
 
         <span
           id="tabTitle"
           class="tab-title">
-          New Tab
+          Veteran Eagles
         </span>
 
         <button
@@ -116,22 +132,35 @@
 
     </div>
 
-    <!-- LOADING BAR -->
+    <!-- LOADING -->
     <div id="loadingBar"></div>
 
     <!-- PAGE -->
     <main id="pageContainer">
 
+      <!-- HOME -->
       <div id="homePage">
+
+        <div class="stars"></div>
 
         <div class="home-content">
 
-          <div class="logo">
-            Arctic
+          <div class="eagle-large">
+            🦅
           </div>
 
-          <div class="subtitle">
-            Browse the web
+          <div class="brand-large">
+            VETERAN <span>EAGLES</span>
+          </div>
+
+          <div class="motto">
+            FREEDOM • HONOR • SERVICE
+          </div>
+
+          <div class="divider">
+            <span></span>
+            ★
+            <span></span>
           </div>
 
           <div class="home-search">
@@ -147,10 +176,36 @@
 
           </div>
 
+          <div class="quick-links">
+
+            <button
+              onclick="navigate('https://www.google.com')">
+              GOOGLE
+            </button>
+
+            <button
+              onclick="navigate('https://www.youtube.com')">
+              YOUTUBE
+            </button>
+
+            <button
+              onclick="navigate('https://github.com')">
+              GITHUB
+            </button>
+
+          </div>
+
+        </div>
+
+        <div class="bottom-banner">
+          <span>★</span>
+          VETERAN EAGLES
+          <span>★</span>
         </div>
 
       </div>
 
+      <!-- WEBSITE -->
       <iframe
         id="page"
         allow="
@@ -162,16 +217,17 @@
         allowfullscreen>
       </iframe>
 
+      <!-- ERROR -->
       <div id="errorPage">
 
         <div class="error-box">
 
           <div class="error-icon">
-            ⚠
+            🦅
           </div>
 
           <h2>
-            Couldn't load this page
+            PAGE COULD NOT LOAD
           </h2>
 
           <p id="errorText">
@@ -179,7 +235,7 @@
           </p>
 
           <button id="retry">
-            Try Again
+            TRY AGAIN
           </button>
 
         </div>
