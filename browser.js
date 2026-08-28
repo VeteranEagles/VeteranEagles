@@ -7,253 +7,364 @@ const loadingBar = document.getElementById("loadingBar");
 const tabTitle = document.getElementById("tabTitle");
 const homeSearch = document.getElementById("homeSearch");
 
-let history = [];
-let historyIndex = -1;
+let socket = null;
 let currentURL = "";
-let loadTimer = null;
+let connected = false;
 
 
 /* ================================
-   URL
+   CONNECT TO REMOTE BROWSER
+================================ */
+
+function connectBrowser() {
+
+    const protocol =
+        location.protocol === "https:"
+            ? "wss:"
+            : "ws:";
+
+    /*
+     * For local testing, the GitHub HTTPS page
+     * cannot directly use ws://localhost from
+     * a secure page.
+     *
+     * Therefore connect explicitly to the
+     * local backend.
+     */
+
+    socket = new WebSocket(
+        "ws://localhost:3000"
+    );
+
+
+    socket.addEventListener("open", () => {
+
+        connected = true;
+
+        console.log(
+            "Connected to Veteran Eagles browser."
+        );
+
+        tabTitle.textContent =
+            "Veteran Eagles";
+
+    });
+
+
+    socket.addEventListener("message", event => {
+
+        try {
+
+            const message =
+                JSON.parse(event.data);
+
+            handleBrowserMessage(message);
+
+        } catch (error) {
+
+            console.error(
+                "Invalid browser message:",
+                error
+            );
+
+        }
+
+    });
+
+
+    socket.addEventListener("close", () => {
+
+        connected = false;
+
+        console.log(
+            "Remote browser disconnected."
+        );
+
+        showError(
+            "The Veteran Eagles browser server is not connected. " +
+            "Make sure server.js is running on your computer."
+        );
+
+    });
+
+
+    socket.addEventListener("error", error => {
+
+        console.error(
+            "WebSocket error:",
+            error
+        );
+
+    });
+
+}
+
+
+/* ================================
+   HANDLE SERVER
+================================ */
+
+function handleBrowserMessage(message) {
+
+    if (message.type === "ready") {
+
+        connected = true;
+
+        if (message.url) {
+
+            currentURL =
+                message.url;
+
+            address.value =
+                message.url;
+
+        }
+
+        return;
+    }
+
+
+    if (message.type === "loaded") {
+
+        currentURL =
+            message.url;
+
+        address.value =
+            message.url;
+
+        tabTitle.textContent =
+            getHostname(message.url);
+
+        hideError();
+
+        finishLoading();
+
+        return;
+    }
+
+
+    if (message.type === "screen") {
+
+        /*
+         * The remote Chromium screenshot is
+         * displayed inside the browser UI.
+         */
+
+        displayScreenshot(
+            message.data
+        );
+
+        if (message.url) {
+
+            currentURL =
+                message.url;
+
+            address.value =
+                message.url;
+
+            tabTitle.textContent =
+                getHostname(message.url);
+
+        }
+
+        finishLoading();
+
+        return;
+    }
+
+
+    if (message.type === "error") {
+
+        showError(
+            message.message ||
+            "The remote browser encountered an error."
+        );
+
+    }
+
+}
+
+
+/* ================================
+   DISPLAY REMOTE SCREEN
+================================ */
+
+function displayScreenshot(base64) {
+
+    page.style.display = "block";
+
+    homePage.style.display = "none";
+
+    errorPage.style.display = "none";
+
+    /*
+     * The existing iframe is replaced visually
+     * with the Chromium screenshot.
+     */
+
+    page.srcdoc = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <style>
+        html,body {
+            margin:0;
+            padding:0;
+            width:100%;
+            height:100%;
+            overflow:hidden;
+            background:#000;
+        }
+
+        img {
+            display:block;
+            width:100%;
+            height:100%;
+            object-fit:contain;
+            background:#000;
+            user-select:none;
+            -webkit-user-drag:none;
+        }
+        </style>
+        </head>
+
+        <body>
+
+        <img
+            src="data:image/jpeg;base64,${base64}"
+            draggable="false"
+        >
+
+        </body>
+        </html>
+    `;
+
+}
+
+
+/* ================================
+   NAVIGATION
+================================ */
+
+function navigate(input) {
+
+    const url =
+        normalizeURL(input);
+
+    if (!url) {
+
+        showError(
+            "Enter a valid website address."
+        );
+
+        return;
+
+    }
+
+
+    if (!connected) {
+
+        showError(
+            "The remote browser is not connected. " +
+            "Make sure server.js is running."
+        );
+
+        return;
+
+    }
+
+
+    address.value = url;
+
+    tabTitle.textContent =
+        "Loading...";
+
+    currentURL = url;
+
+    startLoading();
+
+
+    socket.send(
+        JSON.stringify({
+            type: "navigate",
+            url: url
+        })
+    );
+
+}
+
+
+/* ================================
+   URL NORMALIZATION
 ================================ */
 
 function normalizeURL(input) {
-  input = input.trim();
 
-  if (!input) return null;
+    input =
+        input.trim();
 
-  if (
-    input.startsWith("http://") ||
-    input.startsWith("https://")
-  ) {
-    return input;
-  }
-
-  /*
-   * Treat things such as:
-   * google.com
-   * youtube.com
-   * example.com/test
-   * as URLs.
-   */
-  if (
-    input.includes(".") &&
-    !input.includes(" ")
-  ) {
-    return "https://" + input;
-  }
-
-  return (
-    "https://www.google.com/search?q=" +
-    encodeURIComponent(input)
-  );
-}
-
-
-/* ================================
-   LOADING UI
-================================ */
-
-function startLoading() {
-  clearTimeout(loadTimer);
-
-  loadingBar.style.width = "15%";
-
-  requestAnimationFrame(() => {
-    loadingBar.style.width = "55%";
-  });
-}
-
-
-function finishLoading() {
-  clearTimeout(loadTimer);
-
-  loadingBar.style.width = "100%";
-
-  setTimeout(() => {
-    loadingBar.style.width = "0%";
-  }, 250);
-}
-
-
-/* ================================
-   HOME
-================================ */
-
-function showHome() {
-  clearTimeout(loadTimer);
-
-  page.style.display = "none";
-  errorPage.style.display = "none";
-  homePage.style.display = "flex";
-
-  address.value = "";
-  tabTitle.textContent = "Veteran Eagles";
-
-  currentURL = "";
-
-  finishLoading();
-}
-
-
-/* ================================
-   ERROR
-================================ */
-
-function showError(message) {
-  page.style.display = "none";
-  homePage.style.display = "none";
-  errorPage.style.display = "flex";
-
-  errorText.textContent = message;
-
-  finishLoading();
-}
-
-
-/* ================================
-   LOAD PAGE
-================================ */
-
-function loadPage(url) {
-  return new Promise((resolve, reject) => {
-
-    let completed = false;
-
-    clearTimeout(loadTimer);
-
-    const cleanup = () => {
-      clearTimeout(loadTimer);
-      page.removeEventListener("load", onLoad);
-    };
-
-    const onLoad = () => {
-      if (completed) return;
-
-      completed = true;
-
-      cleanup();
-
-      resolve();
-    };
-
-    page.addEventListener("load", onLoad);
-
-    /*
-     * A load event can fail to happen when the
-     * destination refuses iframe embedding.
-     */
-    loadTimer = setTimeout(() => {
-
-      if (completed) return;
-
-      completed = true;
-
-      cleanup();
-
-      reject(
-        new Error(
-          "The website did not allow itself to be embedded."
-        )
-      );
-
-    }, 10000);
-
-    page.src = url;
-  });
-}
-
-
-/* ================================
-   NAVIGATE
-================================ */
-
-async function navigate(input, saveHistory = true) {
-
-  const url = normalizeURL(input);
-
-  if (!url) {
-    showError("Enter a website address or search.");
-    return;
-  }
-
-  hideError();
-
-  homePage.style.display = "none";
-  page.style.display = "block";
-
-  address.value = url;
-
-  tabTitle.textContent = "Loading...";
-
-  currentURL = url;
-
-  startLoading();
-
-  try {
-
-    await loadPage(url);
-
-    tabTitle.textContent = getTitleFromURL(url);
-
-    finishLoading();
-
-    if (saveHistory) {
-
-      history =
-        history.slice(0, historyIndex + 1);
-
-      history.push(url);
-
-      historyIndex =
-        history.length - 1;
+    if (!input) {
+        return null;
     }
 
-  } catch (error) {
 
-    console.log(
-      "Page failed to load:",
-      url,
-      error
+    if (
+        input.startsWith("http://") ||
+        input.startsWith("https://")
+    ) {
+
+        return input;
+
+    }
+
+
+    if (
+        input.includes(".") &&
+        !input.includes(" ")
+    ) {
+
+        return (
+            "https://" +
+            input
+        );
+
+    }
+
+
+    return (
+        "https://www.google.com/search?q=" +
+        encodeURIComponent(input)
     );
 
-    showError(
-      "This website refused to load inside the Veteran Eagles browser. " +
-      "The site may block iframe embedding."
-    );
-
-  }
 }
 
 
 /* ================================
-   HIDE ERROR
+   BUTTON COMMANDS
 ================================ */
 
-function hideError() {
-  errorPage.style.display = "none";
-}
+function sendCommand(type) {
+
+    if (
+        !socket ||
+        socket.readyState !== WebSocket.OPEN
+    ) {
+
+        showError(
+            "Remote browser is not connected."
+        );
+
+        return;
+
+    }
 
 
-/* ================================
-   TITLE
-================================ */
+    socket.send(
+        JSON.stringify({
+            type: type
+        })
+    );
 
-function getTitleFromURL(url) {
-
-  try {
-
-    const hostname =
-      new URL(url).hostname;
-
-    return hostname
-      .replace(/^www\./, "");
-
-  } catch {
-
-    return "Website";
-
-  }
 }
 
 
@@ -263,16 +374,10 @@ function getTitleFromURL(url) {
 
 function goBack() {
 
-  if (historyIndex <= 0) {
-    return;
-  }
+    sendCommand("back");
 
-  historyIndex--;
+    startLoading();
 
-  navigate(
-    history[historyIndex],
-    false
-  );
 }
 
 
@@ -282,19 +387,10 @@ function goBack() {
 
 function goForward() {
 
-  if (
-    historyIndex >=
-    history.length - 1
-  ) {
-    return;
-  }
+    sendCommand("forward");
 
-  historyIndex++;
+    startLoading();
 
-  navigate(
-    history[historyIndex],
-    false
-  );
 }
 
 
@@ -304,15 +400,119 @@ function goForward() {
 
 function reloadPage() {
 
-  if (!currentURL) {
-    showHome();
-    return;
-  }
+    if (!currentURL) {
 
-  navigate(
-    currentURL,
-    false
-  );
+        showHome();
+
+        return;
+
+    }
+
+    sendCommand("reload");
+
+    startLoading();
+
+}
+
+
+/* ================================
+   LOADING
+================================ */
+
+function startLoading() {
+
+    loadingBar.style.width =
+        "20%";
+
+    setTimeout(() => {
+
+        loadingBar.style.width =
+            "60%";
+
+    }, 150);
+
+}
+
+
+function finishLoading() {
+
+    loadingBar.style.width =
+        "100%";
+
+    setTimeout(() => {
+
+        loadingBar.style.width =
+            "0%";
+
+    }, 250);
+
+}
+
+
+/* ================================
+   HOME
+================================ */
+
+function showHome() {
+
+    page.style.display =
+        "none";
+
+    errorPage.style.display =
+        "none";
+
+    homePage.style.display =
+        "flex";
+
+    address.value = "";
+
+    tabTitle.textContent =
+        "Veteran Eagles";
+
+    currentURL = "";
+
+}
+
+
+/* ================================
+   ERROR
+================================ */
+
+function showError(message) {
+
+    page.style.display =
+        "none";
+
+    homePage.style.display =
+        "none";
+
+    errorPage.style.display =
+        "flex";
+
+    errorText.textContent =
+        message;
+
+}
+
+
+/* ================================
+   HOSTNAME
+================================ */
+
+function getHostname(url) {
+
+    try {
+
+        return new URL(url)
+            .hostname
+            .replace(/^www\./, "");
+
+    } catch {
+
+        return "Website";
+
+    }
+
 }
 
 
@@ -322,145 +522,131 @@ function reloadPage() {
 
 function fullscreen() {
 
-  const browser =
-    document.getElementById("browser");
+    const browser =
+        document.getElementById(
+            "browser"
+        );
 
-  if (document.fullscreenElement) {
+    if (
+        document.fullscreenElement
+    ) {
 
-    document.exitFullscreen();
+        document.exitFullscreen();
 
-  } else if (browser.requestFullscreen) {
+    } else {
 
-    browser.requestFullscreen();
+        browser.requestFullscreen();
 
-  }
+    }
+
 }
 
 
 /* ================================
-   BUTTONS
+   UI EVENTS
 ================================ */
 
 document
-  .getElementById("back")
-  .addEventListener(
-    "click",
-    goBack
-  );
+    .getElementById("back")
+    .onclick = goBack;
+
 
 document
-  .getElementById("forward")
-  .addEventListener(
-    "click",
-    goForward
-  );
+    .getElementById("forward")
+    .onclick = goForward;
+
 
 document
-  .getElementById("reload")
-  .addEventListener(
-    "click",
-    reloadPage
-  );
+    .getElementById("reload")
+    .onclick = reloadPage;
+
 
 document
-  .getElementById("home")
-  .addEventListener(
-    "click",
-    showHome
-  );
+    .getElementById("home")
+    .onclick = showHome;
+
 
 document
-  .getElementById("fullscreen")
-  .addEventListener(
-    "click",
-    fullscreen
-  );
+    .getElementById("fullscreen")
+    .onclick = fullscreen;
+
 
 document
-  .getElementById("newTab")
-  .addEventListener(
-    "click",
-    showHome
-  );
+    .getElementById("newTab")
+    .onclick = showHome;
+
 
 document
-  .getElementById("go")
-  .addEventListener(
-    "click",
-    () => {
-      navigate(address.value);
-    }
-  );
+    .getElementById("go")
+    .onclick = () => {
 
-document
-  .getElementById("retry")
-  .addEventListener(
-    "click",
-    () => {
-
-      if (currentURL) {
         navigate(
-          currentURL,
-          false
+            address.value
         );
-      }
 
-    }
-  );
+    };
 
-
-/* ================================
-   ADDRESS ENTER
-================================ */
 
 address.addEventListener(
-  "keydown",
-  event => {
+    "keydown",
+    event => {
 
-    if (event.key === "Enter") {
+        if (event.key === "Enter") {
 
-      navigate(
-        address.value
-      );
+            navigate(
+                address.value
+            );
+
+        }
 
     }
-
-  }
 );
 
 
-/* ================================
-   HOME SEARCH
-================================ */
-
 homeSearch.addEventListener(
-  "keydown",
-  event => {
+    "keydown",
+    event => {
 
-    if (event.key === "Enter") {
+        if (event.key === "Enter") {
 
-      navigate(
-        homeSearch.value
-      );
+            navigate(
+                homeSearch.value
+            );
+
+        }
 
     }
-
-  }
 );
 
 
 document
-  .getElementById("homeGo")
-  .addEventListener(
-    "click",
-    () => {
+    .getElementById("homeGo")
+    .onclick = () => {
 
-      navigate(
-        homeSearch.value
-      );
+        navigate(
+            homeSearch.value
+        );
 
-    }
-  );
+    };
+
+
+document
+    .getElementById("retry")
+    .onclick = () => {
+
+        if (currentURL) {
+
+            navigate(
+                currentURL
+            );
+
+        } else {
+
+            connectBrowser();
+
+        }
+
+    };
 
 
 /* ================================
@@ -468,3 +654,5 @@ document
 ================================ */
 
 showHome();
+
+connectBrowser();
