@@ -11,31 +11,17 @@ let socket = null;
 let currentURL = "";
 let connected = false;
 
+const REMOTE_WIDTH = 1280;
+const REMOTE_HEIGHT = 720;
 
-/* ================================
-   CONNECT TO REMOTE BROWSER
-================================ */
+
+/* =========================================
+   CONNECT
+========================================= */
 
 function connectBrowser() {
 
-    const protocol =
-        location.protocol === "https:"
-            ? "wss:"
-            : "ws:";
-
-    /*
-     * For local testing, the GitHub HTTPS page
-     * cannot directly use ws://localhost from
-     * a secure page.
-     *
-     * Therefore connect explicitly to the
-     * local backend.
-     */
-
-    socket = new WebSocket(
-        "ws://localhost:3000"
-    );
-
+    socket = new WebSocket("ws://localhost:3000");
 
     socket.addEventListener("open", () => {
 
@@ -45,11 +31,7 @@ function connectBrowser() {
             "Connected to Veteran Eagles browser."
         );
 
-        tabTitle.textContent =
-            "Veteran Eagles";
-
     });
-
 
     socket.addEventListener("message", event => {
 
@@ -60,17 +42,16 @@ function connectBrowser() {
 
             handleBrowserMessage(message);
 
-        } catch (error) {
+        } catch (err) {
 
             console.error(
                 "Invalid browser message:",
-                error
+                err
             );
 
         }
 
     });
-
 
     socket.addEventListener("close", () => {
 
@@ -81,18 +62,16 @@ function connectBrowser() {
         );
 
         showError(
-            "The Veteran Eagles browser server is not connected. " +
-            "Make sure server.js is running on your computer."
+            "The Veteran Eagles browser server is not running."
         );
 
     });
 
-
-    socket.addEventListener("error", error => {
+    socket.addEventListener("error", err => {
 
         console.error(
             "WebSocket error:",
-            error
+            err
         );
 
     });
@@ -100,9 +79,9 @@ function connectBrowser() {
 }
 
 
-/* ================================
-   HANDLE SERVER
-================================ */
+/* =========================================
+   SERVER MESSAGES
+========================================= */
 
 function handleBrowserMessage(message) {
 
@@ -145,11 +124,6 @@ function handleBrowserMessage(message) {
 
     if (message.type === "screen") {
 
-        /*
-         * The remote Chromium screenshot is
-         * displayed inside the browser UI.
-         */
-
         displayScreenshot(
             message.data
         );
@@ -177,7 +151,7 @@ function handleBrowserMessage(message) {
 
         showError(
             message.message ||
-            "The remote browser encountered an error."
+            "Remote browser error."
         );
 
     }
@@ -185,66 +159,425 @@ function handleBrowserMessage(message) {
 }
 
 
-/* ================================
-   DISPLAY REMOTE SCREEN
-================================ */
+/* =========================================
+   DISPLAY SCREEN
+========================================= */
 
 function displayScreenshot(base64) {
 
     page.style.display = "block";
-
     homePage.style.display = "none";
-
     errorPage.style.display = "none";
 
-    /*
-     * The existing iframe is replaced visually
-     * with the Chromium screenshot.
-     */
-
     page.srcdoc = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-        <style>
-        html,body {
-            margin:0;
-            padding:0;
-            width:100%;
-            height:100%;
-            overflow:hidden;
-            background:#000;
-        }
+<!DOCTYPE html>
+<html>
+<head>
 
-        img {
-            display:block;
-            width:100%;
-            height:100%;
-            object-fit:contain;
-            background:#000;
-            user-select:none;
-            -webkit-user-drag:none;
-        }
-        </style>
-        </head>
+<style>
 
-        <body>
+html,
+body {
 
-        <img
-            src="data:image/jpeg;base64,${base64}"
-            draggable="false"
-        >
+    margin:0;
+    padding:0;
 
-        </body>
-        </html>
-    `;
+    width:100%;
+    height:100%;
+
+    overflow:hidden;
+
+    background:#000;
+
+    user-select:none;
+
+}
+
+img {
+
+    position:absolute;
+
+    left:0;
+    top:0;
+
+    width:100%;
+    height:100%;
+
+    object-fit:fill;
+
+    user-select:none;
+
+    -webkit-user-drag:none;
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<img
+    id="remoteScreen"
+    src="data:image/jpeg;base64,${base64}"
+    draggable="false"
+>
+
+<script>
+
+const img =
+    document.getElementById("remoteScreen");
+
+
+function getCoordinates(event) {
+
+    const rect =
+        img.getBoundingClientRect();
+
+    const x =
+        (event.clientX - rect.left)
+        * ${REMOTE_WIDTH}
+        / rect.width;
+
+    const y =
+        (event.clientY - rect.top)
+        * ${REMOTE_HEIGHT}
+        / rect.height;
+
+    return {
+        x: Math.max(
+            0,
+            Math.min(${REMOTE_WIDTH}, x)
+        ),
+        y: Math.max(
+            0,
+            Math.min(${REMOTE_HEIGHT}, y)
+        )
+    };
 
 }
 
 
-/* ================================
-   NAVIGATION
-================================ */
+/* CLICK */
+
+img.addEventListener(
+    "click",
+    event => {
+
+        const pos =
+            getCoordinates(event);
+
+        parent.postMessage({
+
+            source:
+                "veteran-eagles-browser",
+
+            type:
+                "click",
+
+            x:
+                pos.x,
+
+            y:
+                pos.y
+
+        }, "*");
+
+    }
+);
+
+
+/* DOUBLE CLICK */
+
+img.addEventListener(
+    "dblclick",
+    event => {
+
+        const pos =
+            getCoordinates(event);
+
+        parent.postMessage({
+
+            source:
+                "veteran-eagles-browser",
+
+            type:
+                "dblclick",
+
+            x:
+                pos.x,
+
+            y:
+                pos.y
+
+        }, "*");
+
+    }
+);
+
+
+/* MOUSE MOVE */
+
+img.addEventListener(
+    "mousemove",
+    event => {
+
+        const pos =
+            getCoordinates(event);
+
+        parent.postMessage({
+
+            source:
+                "veteran-eagles-browser",
+
+            type:
+                "mousemove",
+
+            x:
+                pos.x,
+
+            y:
+                pos.y
+
+        }, "*");
+
+    }
+);
+
+
+/* SCROLL */
+
+img.addEventListener(
+    "wheel",
+    event => {
+
+        event.preventDefault();
+
+        parent.postMessage({
+
+            source:
+                "veteran-eagles-browser",
+
+            type:
+                "scroll",
+
+            amount:
+                event.deltaY
+
+        }, "*");
+
+    },
+    { passive:false }
+);
+
+
+/* KEYBOARD */
+
+document.addEventListener(
+    "keydown",
+    event => {
+
+        parent.postMessage({
+
+            source:
+                "veteran-eagles-browser",
+
+            type:
+                "keydown",
+
+            key:
+                event.key
+
+        }, "*");
+
+        event.preventDefault();
+
+    }
+);
+
+
+/* TEXT */
+
+document.addEventListener(
+    "keypress",
+    event => {
+
+        if (
+            event.key.length === 1
+        ) {
+
+            parent.postMessage({
+
+                source:
+                    "veteran-eagles-browser",
+
+                type:
+                    "type",
+
+                text:
+                    event.key
+
+            }, "*");
+
+        }
+
+    }
+);
+
+</script>
+
+</body>
+</html>
+`;
+
+}
+
+
+/* =========================================
+   RECEIVE SCREEN EVENTS
+========================================= */
+
+window.addEventListener(
+    "message",
+    event => {
+
+        const data =
+            event.data;
+
+        if (
+            !data ||
+            data.source !==
+                "veteran-eagles-browser"
+        ) {
+            return;
+        }
+
+
+        if (!socket) {
+            return;
+        }
+
+
+        if (
+            socket.readyState !==
+            WebSocket.OPEN
+        ) {
+            return;
+        }
+
+
+        if (
+            data.type === "click" ||
+            data.type === "dblclick"
+        ) {
+
+            socket.send(
+                JSON.stringify({
+
+                    type:
+                        data.type,
+
+                    x:
+                        data.x,
+
+                    y:
+                        data.y
+
+                })
+            );
+
+            return;
+        }
+
+
+        if (
+            data.type === "mousemove"
+        ) {
+
+            socket.send(
+                JSON.stringify({
+
+                    type:
+                        "mousemove",
+
+                    x:
+                        data.x,
+
+                    y:
+                        data.y
+
+                })
+            );
+
+            return;
+        }
+
+
+        if (
+            data.type === "scroll"
+        ) {
+
+            socket.send(
+                JSON.stringify({
+
+                    type:
+                        "scroll",
+
+                    amount:
+                        data.amount
+
+                })
+            );
+
+            return;
+        }
+
+
+        if (
+            data.type === "keydown"
+        ) {
+
+            socket.send(
+                JSON.stringify({
+
+                    type:
+                        "keydown",
+
+                    key:
+                        data.key
+
+                })
+            );
+
+            return;
+        }
+
+
+        if (
+            data.type === "type"
+        ) {
+
+            socket.send(
+                JSON.stringify({
+
+                    type:
+                        "type",
+
+                    text:
+                        data.text
+
+                })
+            );
+
+        }
+
+    }
+);
+
+
+/* =========================================
+   NAVIGATE
+========================================= */
 
 function navigate(input) {
 
@@ -252,51 +585,49 @@ function navigate(input) {
         normalizeURL(input);
 
     if (!url) {
+        return;
+    }
+
+    if (
+        !socket ||
+        socket.readyState !==
+            WebSocket.OPEN
+    ) {
 
         showError(
-            "Enter a valid website address."
+            "Remote browser is not connected."
         );
 
         return;
-
     }
-
-
-    if (!connected) {
-
-        showError(
-            "The remote browser is not connected. " +
-            "Make sure server.js is running."
-        );
-
-        return;
-
-    }
-
 
     address.value = url;
+
+    currentURL = url;
 
     tabTitle.textContent =
         "Loading...";
 
-    currentURL = url;
-
     startLoading();
-
 
     socket.send(
         JSON.stringify({
-            type: "navigate",
-            url: url
+
+            type:
+                "navigate",
+
+            url:
+                url
+
         })
     );
 
 }
 
 
-/* ================================
-   URL NORMALIZATION
-================================ */
+/* =========================================
+   URL
+========================================= */
 
 function normalizeURL(input) {
 
@@ -307,7 +638,6 @@ function normalizeURL(input) {
         return null;
     }
 
-
     if (
         input.startsWith("http://") ||
         input.startsWith("https://")
@@ -316,7 +646,6 @@ function normalizeURL(input) {
         return input;
 
     }
-
 
     if (
         input.includes(".") &&
@@ -330,7 +659,6 @@ function normalizeURL(input) {
 
     }
 
-
     return (
         "https://www.google.com/search?q=" +
         encodeURIComponent(input)
@@ -339,25 +667,19 @@ function normalizeURL(input) {
 }
 
 
-/* ================================
-   BUTTON COMMANDS
-================================ */
+/* =========================================
+   COMMAND
+========================================= */
 
 function sendCommand(type) {
 
     if (
         !socket ||
-        socket.readyState !== WebSocket.OPEN
+        socket.readyState !==
+            WebSocket.OPEN
     ) {
-
-        showError(
-            "Remote browser is not connected."
-        );
-
         return;
-
     }
-
 
     socket.send(
         JSON.stringify({
@@ -368,35 +690,27 @@ function sendCommand(type) {
 }
 
 
-/* ================================
-   BACK
-================================ */
+/* =========================================
+   NAVIGATION BUTTONS
+========================================= */
 
 function goBack() {
 
-    sendCommand("back");
-
     startLoading();
+
+    sendCommand("back");
 
 }
 
-
-/* ================================
-   FORWARD
-================================ */
 
 function goForward() {
 
-    sendCommand("forward");
-
     startLoading();
+
+    sendCommand("forward");
 
 }
 
-
-/* ================================
-   RELOAD
-================================ */
 
 function reloadPage() {
 
@@ -405,53 +719,18 @@ function reloadPage() {
         showHome();
 
         return;
-
     }
-
-    sendCommand("reload");
 
     startLoading();
 
-}
-
-
-/* ================================
-   LOADING
-================================ */
-
-function startLoading() {
-
-    loadingBar.style.width =
-        "20%";
-
-    setTimeout(() => {
-
-        loadingBar.style.width =
-            "60%";
-
-    }, 150);
+    sendCommand("reload");
 
 }
 
 
-function finishLoading() {
-
-    loadingBar.style.width =
-        "100%";
-
-    setTimeout(() => {
-
-        loadingBar.style.width =
-            "0%";
-
-    }, 250);
-
-}
-
-
-/* ================================
+/* =========================================
    HOME
-================================ */
+========================================= */
 
 function showHome() {
 
@@ -474,9 +753,9 @@ function showHome() {
 }
 
 
-/* ================================
+/* =========================================
    ERROR
-================================ */
+========================================= */
 
 function showError(message) {
 
@@ -493,6 +772,8 @@ function showError(message) {
         message;
 
 }
+
+
 function hideError() {
 
     errorPage.style.display =
@@ -500,9 +781,44 @@ function hideError() {
 
 }
 
-/* ================================
+
+/* =========================================
+   LOADING
+========================================= */
+
+function startLoading() {
+
+    loadingBar.style.width =
+        "20%";
+
+    setTimeout(() => {
+
+        loadingBar.style.width =
+            "60%";
+
+    }, 100);
+
+}
+
+
+function finishLoading() {
+
+    loadingBar.style.width =
+        "100%";
+
+    setTimeout(() => {
+
+        loadingBar.style.width =
+            "0%";
+
+    }, 250);
+
+}
+
+
+/* =========================================
    HOSTNAME
-================================ */
+========================================= */
 
 function getHostname(url) {
 
@@ -521,9 +837,9 @@ function getHostname(url) {
 }
 
 
-/* ================================
+/* =========================================
    FULLSCREEN
-================================ */
+========================================= */
 
 function fullscreen() {
 
@@ -538,7 +854,9 @@ function fullscreen() {
 
         document.exitFullscreen();
 
-    } else {
+    } else if (
+        browser.requestFullscreen
+    ) {
 
         browser.requestFullscreen();
 
@@ -547,56 +865,58 @@ function fullscreen() {
 }
 
 
-/* ================================
-   UI EVENTS
-================================ */
+/* =========================================
+   EVENTS
+========================================= */
 
 document
     .getElementById("back")
-    .onclick = goBack;
-
+    .onclick =
+        goBack;
 
 document
     .getElementById("forward")
-    .onclick = goForward;
-
+    .onclick =
+        goForward;
 
 document
     .getElementById("reload")
-    .onclick = reloadPage;
-
+    .onclick =
+        reloadPage;
 
 document
     .getElementById("home")
-    .onclick = showHome;
-
+    .onclick =
+        showHome;
 
 document
     .getElementById("fullscreen")
-    .onclick = fullscreen;
-
+    .onclick =
+        fullscreen;
 
 document
     .getElementById("newTab")
-    .onclick = showHome;
-
+    .onclick =
+        showHome;
 
 document
     .getElementById("go")
-    .onclick = () => {
+    .onclick =
+        () => {
 
-        navigate(
-            address.value
-        );
+            navigate(
+                address.value
+            );
 
-    };
-
+        };
 
 address.addEventListener(
     "keydown",
     event => {
 
-        if (event.key === "Enter") {
+        if (
+            event.key === "Enter"
+        ) {
 
             navigate(
                 address.value
@@ -607,12 +927,13 @@ address.addEventListener(
     }
 );
 
-
 homeSearch.addEventListener(
     "keydown",
     event => {
 
-        if (event.key === "Enter") {
+        if (
+            event.key === "Enter"
+        ) {
 
             navigate(
                 homeSearch.value
@@ -623,40 +944,41 @@ homeSearch.addEventListener(
     }
 );
 
-
 document
     .getElementById("homeGo")
-    .onclick = () => {
+    .onclick =
+        () => {
 
-        navigate(
-            homeSearch.value
-        );
+            navigate(
+                homeSearch.value
+            );
 
-    };
+        };
 
 
 document
     .getElementById("retry")
-    .onclick = () => {
+    .onclick =
+        () => {
 
-        if (currentURL) {
+            if (currentURL) {
 
-            navigate(
-                currentURL
-            );
+                navigate(
+                    currentURL
+                );
 
-        } else {
+            } else {
 
-            connectBrowser();
+                connectBrowser();
 
-        }
+            }
 
-    };
+        };
 
 
-/* ================================
+/* =========================================
    START
-================================ */
+========================================= */
 
 showHome();
 
