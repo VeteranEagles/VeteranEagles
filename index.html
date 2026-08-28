@@ -1,10 +1,197 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
-  <title>My Test Page</title>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0">
+
+  <title>Arctic Browser</title>
+
+  <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
-  <h1>Hello!</h1>
-  <p>If you can see this through Apps Script, the loader works.</p>
+
+  <div id="browser">
+
+    <!-- TOP BAR -->
+    <header id="toolbar">
+
+      <div id="navButtons">
+
+        <button
+          id="back"
+          class="nav-btn"
+          title="Back">
+          ‹
+        </button>
+
+        <button
+          id="forward"
+          class="nav-btn"
+          title="Forward">
+          ›
+        </button>
+
+        <button
+          id="reload"
+          class="nav-btn"
+          title="Reload">
+          ↻
+        </button>
+
+        <button
+          id="home"
+          class="nav-btn"
+          title="Home">
+          ⌂
+        </button>
+
+      </div>
+
+      <div id="addressContainer">
+
+        <span id="lock">⌕</span>
+
+        <input
+          id="address"
+          type="text"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="Search or enter URL">
+
+        <button
+          id="go"
+          title="Go">
+          →
+        </button>
+
+      </div>
+
+      <div id="rightButtons">
+
+        <button
+          id="newTab"
+          class="nav-btn"
+          title="New tab">
+          +
+        </button>
+
+        <button
+          id="fullscreen"
+          class="nav-btn"
+          title="Fullscreen">
+          ⛶
+        </button>
+
+      </div>
+
+    </header>
+
+    <!-- TAB BAR -->
+    <div id="tabs">
+
+      <div
+        id="tab"
+        class="tab active">
+
+        <span class="tab-icon">❄</span>
+
+        <span
+          id="tabTitle"
+          class="tab-title">
+          New Tab
+        </span>
+
+        <button
+          id="closeTab"
+          class="tab-close">
+          ×
+        </button>
+
+      </div>
+
+    </div>
+
+    <!-- LOADING BAR -->
+    <div id="loadingBar"></div>
+
+    <!-- PAGE -->
+    <main id="pageContainer">
+
+      <div id="homePage">
+
+        <div class="home-content">
+
+          <div class="logo">
+            Arctic
+          </div>
+
+          <div class="subtitle">
+            Browse the web
+          </div>
+
+          <div class="home-search">
+
+            <input
+              id="homeSearch"
+              type="text"
+              placeholder="Search or enter a URL">
+
+            <button id="homeGo">
+              →
+            </button>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <iframe
+        id="page"
+        allow="
+          autoplay;
+          fullscreen;
+          gamepad;
+          picture-in-picture
+        "
+        allowfullscreen>
+      </iframe>
+
+      <div id="errorPage">
+
+        <div class="error-box">
+
+          <div class="error-icon">
+            ⚠
+          </div>
+
+          <h2>
+            Couldn't load this page
+          </h2>
+
+          <p id="errorText">
+            Something prevented the page from loading.
+          </p>
+
+          <button id="retry">
+            Try Again
+          </button>
+
+        </div>
+
+      </div>
+
+    </main>
+
+  </div>
+
+  <script src="browser.js"></script>
+
 </body>
+
 </html>
